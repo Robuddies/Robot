@@ -74,48 +74,89 @@ Main:
 	; If you want to take manual control of the robot,
 	; execute CLI &B0010 to disable the timer interrupt.
 	
+	;LOADI  90
+	;STORE  DTheta      ; use API to get robot to face 90 degrees
+;TurnLoop:
+;	IN     Theta
+;	ADDI   -90
+;	CALL   Abs         ; get abs(currentAngle - 90)
+;	ADDI   -3
+;	JPOS   TurnLoop    ; if angle error > 3, keep checking
+	; at this point, robot should be within 3 degrees of 90
+;	LOAD   FMid
+;	STORE  DVel        ; use API to move forward
 
-		
+;InfLoop: 
+	;JUMP   InfLoop
+	; note that the movement API will still be running during this
+	; infinite loop, because it uses the timer interrupt, so the
+	; robot will continue to attempt to match DTheta and DVel
 MASK:	DW	&B01101100
 	LOAD	MASK
 	OUT		SONAREN
 	
 NUM:	DW	470 ;470
-FORWARD:	DW	430
-BACKWARD:	DW	-430
+FORWARD:	DW	550
+BACKWARD:	DW	-550
 STOP:	DW	&H0000
 MASKN:  DW  &B00000000
-WALL1:	DW	0
-WALL2:	DW	0
+XVAL:    DW &H855  ;2133 mm
 
 
 	IN		DIST5
-	STORE	WALL1
-	STORE	WALL2
+	LOAD	FORWARD
+	STORE	DVEL
+	OUT		Timer
+	JUMP	TIMERTEST
 Loop1:
 	LOAD	FORWARD
 	STORE	DVEL
-	IN		DIST5
-	ADDI	-355
-	JNEG	Rotation1
-	IN		DIST5
-	SUB		WALL1
-	JPOS	GoingAway1
-	JNEG	Twrds1
+	IN     DIST5
+	ADDI   -400 ;-130
+	;IN XPOS
+	;SUB XVAL
+	JNEG ROTATION1
+	;OUT TIMER
+	;jUMP TIMETEST
+	JUMP CHECK
+	
+CHECK: 
+    IN		DIST5
+	ADDI	-680
+	JPOS	GoingAway1 ; too far from wall
+	JNEG	Twrds1 ; too close to wall
 	JUMP	Loop1
 	
 Twrds1:
 	IN		THETA
-	ADDI	10
-	STORE	THETA
-	JUMP	Loop1
+	ADDI	-1
+	OUT  	THETA
+	OUT     TIMER
+	JUMP    TIMERN
+
 	
 GoingAway1:
 	IN		THETA
-	ADDI	-10
-	STORE	THETA
-	JUMP	Loop1
-	
+	ADDI	1
+	OUT	    THETA
+	OUT   TIMER
+	JUMP    TIMERN
+
+;TIMERTEST:
+  ; IN Timer
+ ; ADDI -5
+  ;JNEG TIMERTEST
+  ;JUMP CHECK
+  
+TIMERN:
+   IN Timer
+  ADDI -1
+  JNEG TIMERN
+  JUMP LOOP1
+
+
+  
+		
 Rotation1:
 	OUT		SSEG1
 	LOAD	STOP
@@ -128,10 +169,8 @@ Rotation1:
 
 Time1:
 	IN		TIMER
-	ADDI	-13
+	ADDI	-10
 	JNEG	Time1
-	IN		DIST5
-	STORE	WALL1
 	JUMP	Loop2
 	
 Loop2:
@@ -140,25 +179,29 @@ Loop2:
 	IN		DIST3
 	SUB		NUM
 	JNEG	Rotation2
-	IN		DIST5
-	SUB		WALL1
-	JPOS	GoingAway2
-	JNEG	Twrds2
+	JUMP	CHECK2
+	
+CHECK2: 
+    IN		DIST5
+	ADDI	-190
+	JPOS	GoingAway2 ; too far from wall
+	JNEG	Twrds2 ; too close to wall
 	JUMP	Loop2
 	
 Twrds2:
 	IN		THETA
-	ADDI	65
-	STORE	THETA
-	JUMP	GL_TIMER
-	JUMP	Loop2
+	ADDI	-1
+	OUT	THETA
+	OUT 	Timer
+	JUMP	TIMERN2
+	
 	
 GoingAway2:
 	IN		THETA
-	ADDI	-15
-	STORE	THETA
-	JUMP	GL_TIMER
-	JUMP	Loop2
+	ADDI	1
+	OUT	THETA
+	OUT 	Timer
+	JUMP	TIMERN2
 
 Rotation2:
 	OUT		SSEG1
@@ -166,12 +209,12 @@ Rotation2:
 	STORE	DVEL
 	OUT		Timer
 	JUMP	Time2
-
-Time2:
-	IN		TIMER
-	ADDI	-5
-	JNEG	Time2
-	JUMP	Loop3	
+	
+TIMERN2:
+   IN Timer
+  ADDI -1
+  JNEG TIMERN2
+  JUMP LOOP2
 	
 Loop3:
 	LOAD	BACKWARD
@@ -252,14 +295,8 @@ GoingAway4:
 	STORE	THETA
 	JUMP	End
 
-GL_TIMER:
-	OUT		TIMER
-GLT:
-	IN		TIMER
-	ADDI	-2
-	JNEG	GLT
-	RETURN
-	
+
+
 	
 
 Die:
