@@ -91,19 +91,16 @@ Main:
 	; note that the movement API will still be running during this
 	; infinite loop, because it uses the timer interrupt, so the
 	; robot will continue to attempt to match DTheta and DVel
-MASK:	DW	&B01101100
+MASK:	DW	&B01101101
 	LOAD	MASK
 	OUT		SONAREN
 
-COUNTS:		DW  3830 ; 3845
-DISTANCE:	DW	3950
-DISTANCE2:	DW	3100;
+DISTANCE:	DW	3920
+DISTANCE2:	DW	3085
 NUM:	DW	490 ;470
-FORWARD:	DW	550
-BACKWARD:	DW	-550
+FORWARD:	DW	380
+BACKWARD:	DW	-400
 STOP:	DW	&H0000
-MASKN:  DW  &B00000000
-XVAL:    DW &H855  ;2133 mm
 
 
 	IN		DIST5
@@ -121,6 +118,7 @@ Loop1:
 	
 CHECK: 
     IN		DIST5
+    OUT		SSEG1
 	ADDI	-700
 	JPOS	GoingAway1 ; too far from wall
 	JNEG	Twrds1 ; too close to wall
@@ -132,11 +130,7 @@ Twrds1:
 	OUT  	THETA
 	OUT     TIMER
 	JUMP    TIMERN
-	;IN		YPOS
-	;ADDI	20
-	;OUT		YPOS
-	;JUMP	Loop1
-
+	JUMP	Loop1
 	
 GoingAway1:
 	IN		THETA
@@ -144,10 +138,7 @@ GoingAway1:
 	OUT	    THETA
 	OUT     TIMER
 	JUMP    TIMERN
-	;IN		YPOS
-	;ADDI	-20
-	;OUT		YPOS
-
+	
 TIMERTEST:
    IN Timer
    ADDI -10
@@ -156,7 +147,7 @@ TIMERTEST:
   
 TIMERN:
    IN Timer
-  ADDI -2
+  ADDI -1
   JNEG TIMERN
   JUMP LOOP1
 
@@ -168,7 +159,7 @@ Rotation1:
 	LOAD	STOP
 	STORE	DVEL
 	IN		Theta
-	ADDI	-90
+	ADDI	-92
 	OUT		Theta
 	OUT		Timer
 	JUMP	Time1	
@@ -178,8 +169,11 @@ Time1:
 	ADDI	-10
 	JNEG	Time1
 	OUT		XPOS
-	JUMP	Loop2
-	
+	JUMP	L2
+
+L2:
+	;CALL	CORRECTION
+	JUMP CORRECTION2
 Loop2:
 	LOAD	FORWARD
 	STORE	DVEL
@@ -190,7 +184,8 @@ Loop2:
 	
 CHECK2: 
     IN		DIST5
-	ADDI	-400
+    OUT		SSEG1
+	ADDI	-315
 	JPOS	GoingAway2 ; too far from wall
 	JNEG	Twrds2 ; too close to wall
 	JUMP	Loop2
@@ -214,49 +209,63 @@ Rotation2:
 	OUT		SSEG1
 	LOAD	STOP
 	STORE	DVEL
+	IN		Theta
+	ADDI	185
+	OUT		Theta
+	OUT		Timer
+	JUMP	TimeX
+	
+TimeX:
+	IN		TIMER
+	ADDI	-15
+	JNEG	TimeX
 	OUT		XPOS
-	JUMP	Loop3
+	JUMP	L3
 	
 TIMERN2:
-   IN Timer
-  ADDI -2
+  IN Timer
+  ADDI -1
   JNEG TIMERN2
-  JUMP LOOP2
-	
+  JUMP Loop2
+
+L3:
+	;CALL	CORRECTION
+	JUMP CORRECTION3
 Loop3:
-	LOAD	BACKWARD
+	LOAD	FORWARD
 	STORE	DVEL
 	IN		XPOS
-	ADD		DISTANCE
-	JNEG	Rotation3
+	SUB		DISTANCE
+	JPOS	Rotation3
 	JUMP 	CHECK3
 	
 CHECK3: 
-    IN		DIST5
-	ADDI	-400
+    IN		DIST0
+    OUT		SSEG1
+	ADDI	-315
 	JPOS	GoingAway3
 	JNEG	Twrds3
 	JUMP	Loop3
 	
 Twrds3:
 	IN		THETA
-	ADDI	2
+	ADDI	1
 	STORE	THETA
 	OUT 	Timer
 	JUMP	TIMERN3
 	
 GoingAway3:
 	IN		THETA
-	ADDI	-2
+	ADDI	-1
 	STORE	THETA
 	OUT 	Timer
 	JUMP	TIMERN3
 	
 TIMERN3:
    IN 		Timer
-   ADDI 	-2
+   ADDI 	-1
    JNEG 	TIMERN3
-   JUMP 	LOOP3
+   JUMP 	Loop3
 
 Rotation3:
 	OUT		SSEG1
@@ -272,59 +281,100 @@ Time3:
 	IN		TIMER
 	ADDI	-10
 	JNEG	Time3
-	OUT		XPOS
-	LOAD	BACKWARD
+	;CALL	CORRECTION
+	LOAD	FORWARD
 	STORE	DVEL
 	OUT 	TIMER
+	OUT     XPOS
 	JUMP	FINAL_TIMER
 
 FINAL_TIMER:
 	IN		TIMER
-	ADDI	-10
+	ADDI	-12
 	JNEG	FINAL_TIMER
 	JUMP	Loop4
-
-Loop4:
-	LOAD	BACKWARD
+ Loop4:
+	LOAD	FORWARD
 	STORE	DVEL
 	IN		XPOS
-	ADD		DISTANCE2
-	JNEG	RESET
-	JUMP	CHECK4
-	
-CHECK4:
-	IN		DIST5
+	SUB		DISTANCE3
+	JPOS	RESET
+	IN		DIST0
+	OUT		SSEG1
 	ADDI	-700
 	JPOS	GoingAway4
 	JNEG	Twrds4
-	JUMP 	Loop4
+	JUMP	Loop4
 	
 Twrds4:
 	IN		THETA
-	ADDI	2
+	ADDI	1
 	STORE	THETA
 	OUT 	Timer
 	JUMP	TIMERN4
 	
 GoingAway4:
 	IN		THETA
-	ADDI	-2
+	ADDI	-1
 	STORE	THETA
 	OUT 	Timer
 	JUMP	TIMERN4
 
 TIMERN4:
    IN 		Timer
-   ADDI 	-2
+   ADDI 	-1
    JNEG 	TIMERN4
    JUMP 	Loop4
   
 RESET:
-	OUT		RESETPOS
+	LOAD	STOP
+	STORE	DVEL
+	IN		THETA
+	ADDI	-180
+	OUT		THETA
+	OUT		TIMER
+TT:
+	IN		TIMER
+	ADDI	-10
+	JNEG	TT
+	OUT		XPOS
+	OUT		TIMER
+	;CALL    CORRECTION
+	JUMP CORRECTION1
 	JUMP	Loop1
 
-
 	
+CORRECTION1:
+	LOADI   200
+	STORE	DVEL
+	OUT		TIMER
+CT1:
+	IN		TIMER
+	ADDI	-10
+	JNEG    CT1
+	;RETURN
+	JUMP Loop1
+CORRECTION2:
+	LOADI   200
+	STORE	DVEL
+	OUT		TIMER
+CT2:
+	IN		TIMER
+	ADDI	-10
+	JNEG    CT2
+	;RETURN
+	JUMP Check2
+	
+CORRECTION3:
+	LOADI   200
+	STORE	DVEL
+	OUT		TIMER
+CT3:
+	IN		TIMER
+	ADDI	-10
+	JNEG    CT3
+	;RETURN
+	JUMP Check3
 
 Die:
 ; Sometimes it's useful to permanently stop execution.
